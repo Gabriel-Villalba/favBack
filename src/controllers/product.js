@@ -2,21 +2,52 @@ const { Product, Category } = require("../db");
 const { Op } = require("sequelize");
 
 /* =========================
+   GET PRODUCTS (PAGINADO)
+========================= */
+const getProducts = async (req, res) => {
+  try {
+    let { page = 1, limit = 8 } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await Product.findAndCountAll({
+      where: { Delete: false },
+      include: [
+        {
+          model: Category,
+          attributes: ["name"],
+          through: { attributes: [] }
+        }
+      ],
+      limit,
+      offset,
+      order: [["createdAt", "DESC"]]
+    });
+
+    return res.status(200).json({
+      products: rows,
+      totalProducts: count,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page
+    });
+  } catch (error) {
+    console.error("Error al obtener productos:", error);
+    return res.status(500).json({ error: "Error al obtener productos" });
+  }
+};
+
+/* =========================
    GET PRODUCT BY ID
 ========================= */
-const getProduct = async (req, res) => {
+const getProductById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    if (!id) {
-      return res.status(400).send("Ingrese un producto");
-    }
-
     const producto = await Product.findOne({
-      where: {
-        id,
-        Delete: false
-      },
+      where: { id, Delete: false },
       include: [
         {
           model: Category,
@@ -32,14 +63,16 @@ const getProduct = async (req, res) => {
 
     return res.status(200).json(producto);
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    console.error("Error getProductById:", error);
+    return res.status(500).json({ error: "Error interno del servidor" });
   }
 };
+
 
 /* =========================
    SEARCH PRODUCT BY NAME
 ========================= */
-const getProductName = async (req, res) => {
+const getProductByName = async (req, res) => {
   const { name } = req.params;
 
   try {
@@ -201,7 +234,7 @@ const deleteProduct = async (req, res) => {
 /* =========================
    RESTORE PRODUCT
 ========================= */
-const deshacerSeleteProduct = async (req, res) => {
+const restoreProduct = async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -221,10 +254,12 @@ const deshacerSeleteProduct = async (req, res) => {
 };
 
 module.exports = {
-  getProduct,
-  getProductName,
+  getProductById,
+  getProducts,
+  getProductByName,
   createProduct,
   updateProduct,
   deleteProduct,
-  deshacerSeleteProduct
+  restoreProduct
 };
+
